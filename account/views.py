@@ -12,9 +12,8 @@ from account.models import *
 
 '''
 *****登录*****
-post:
-username
-password
+post:127.0.0.1:8000/account/signin
+body:username=xxx,password=xxx
 响应
 {
     "code":0,
@@ -54,7 +53,16 @@ def signin(request):
 *****注册*****
 method：post请求
 必要信息：name、phone(唯一)、pwd密码
-返回，json字段，包含name、phone
+POST 127.0.0.1:8000/account/signup
+body:username=cloudhuan,password=1,phone=10010
+{
+    "data": {
+        "uid": 3,
+        "name": "cloudhuan",
+        "phone": "10010"
+    },
+    "code": 0
+}
 *****返回码定义*****
 0   注册成功
 -1      请求方式错误
@@ -95,6 +103,20 @@ def signup(request):
 
 '''
 *****写入笔记*****
+调用方式 POST  
+示例：
+POST HTTP 127.0.0.1:8000/account/writenote
+header：TOKEN:XXX    body:uid=1,content='我是文本哦'
+{
+    "data": {
+        "uid": 1,
+        "content": "我是文本哦",
+        "name": "cz",
+        "cid": 15
+    },
+    "code": 0
+}
+
 *****返回码*****
 0   ok
 -108    uid or content is null
@@ -131,12 +153,29 @@ def writeNote(request):
 
 '''
 *****读取用户笔记*****
+调用方式 get 
+示例：
+get:127.0.0.1:8000/account/readnote?uid=2
+header：TOKEN:XXXXXX
+{
+    "code": 0,
+    "data": [
+        {
+            "cid:": 1,
+            "content": "aabbcc"
+        },
+        {
+            "cid:": 2,
+            "content": "你们好"
+        }
+    ]
+}
 *****返回码*****
 0   ok
--200    please input user id
--201    uid not found
--202    no permission
-
+-200    please input user id    用户id不能为空
+-201    uid not found   无此用户
+-202    no permission   无权限访问该资源
+-203    no content  无数据
 '''
 def readNote(request):
     method = request.method;
@@ -156,6 +195,9 @@ def readNote(request):
 
     items = Note.objects.filter(uuid=uid);
     resp = [];
+
+    if not items:
+        return C_Response(-203,'','no content');
 
     for o in items:
         resp.append({"cid:":o.cid,"content":o.content});
