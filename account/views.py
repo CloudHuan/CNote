@@ -1,12 +1,14 @@
 from builtins import Exception
 
 from django.contrib.gis import geometry
+from django.core.handlers import exception
 from django.http.response import HttpResponse
 from django.shortcuts import render
 
 # Create your views here.
 from MyTools.RespnseTools import C_Response
-from account.models import User, Note
+from MyTools.TokenTools import randomTokens
+from account.models import *
 
 '''
 *****登录*****
@@ -40,7 +42,13 @@ def signin(request):
     infos = infos[0];
     if not infos.pwd == pwd:
         return C_Response(-105,'','password wrong');
-    return C_Response(0,{"name":infos.name,"phone":infos.phone,"uid":infos.uid});
+
+    # 生成认证token
+    token = randomTokens();
+    infos.token = token;
+    infos.save();
+
+    return C_Response(0,{"name":infos.name,"phone":infos.phone,"uid":infos.uid,"token":token});
 
 '''
 *****注册*****
@@ -81,6 +89,8 @@ def signup(request):
     m_id.save();
     #查询并返回数据
     resp = User.objects.get(phone=phone);
+
+
     return C_Response(0,{"name":resp.name,"phone":resp.phone,"uid":resp.uid});
 
 '''
@@ -91,10 +101,13 @@ def signup(request):
 -109    uid not found
 '''
 def writeNote(request):
-
+    pass
     uid = request.POST.get('uid','');
     content = request.POST.get('content','');
     public = request.POST.get('public','');
+    token = request.META.get('HTTP_TOKEN', '');
+
+
 
     if not uid or not content:
         return C_Response(-108,'','uid or content is null');
@@ -103,17 +116,51 @@ def writeNote(request):
     except:
         return C_Response(-109,'','uid not found');
 
-    Note.objects.create(uid=uid,content=content,cid=-1,public=public);
-    r = Note.objects.get(cid=-1);
+    r = User.objects.get(uid=uid);
+    if token != r.token:
+        return C_Response(-202, '', 'no permission');
+
+    Note.objects.create(uuid=uid,content=content,public=False);
+    r = Note.objects.get(cid=0);
     c_id = r.id;
     r.cid = c_id;
     r.save();
-    query_shell = "SELECT a.name,b.uid,b.content,b.cid FROM account_user a JOIN account_note b ON a.uid = b.uid WHERE b.cid=%s"%c_id;
+    query_shell = "SELECT a.id,a.name,b.uuid,b.content,b.cid FROM account_user a JOIN account_note b ON a.uid = b.uuid WHERE b.cid=%s"%c_id;
     rr = Note.objects.raw(query_shell)[0];
-    return C_Response(0, {"name": rr.name, "uid": rr.uid,"content":rr.content});
+    return C_Response(0, {"name": rr.name, "uid": rr.uuid,"content":rr.content,"cid":rr.cid});
 
+'''
+*****读取用户笔记*****
+*****返回码*****
+0   ok
+-200    please input user id
+-201    uid not found
+-202    no permission
+
+'''
 def readNote(request):
-    pass
+    method = request.method;
+    uid = request.GET.get('uid','');
+    token = request.META.get('HTTP_TOKEN','');
+
+    if not uid:
+        return C_Response(-200,'','please input user id');
+    try:
+        User.objects.get(uid=uid);
+    except:
+        return C_Response(-201,'','uid not found');
+
+    r = User.objects.get(uid=uid);
+    if not token == r.token:
+        return C_Response(-202, '', 'no permission');
+
+    items = Note.objects.filter(uuid=uid);
+    resp = [];
+
+    for o in items:
+        resp.append({"cid:":o.cid,"content":o.content});
+
+    return C_Response(0,resp);
 
 
 

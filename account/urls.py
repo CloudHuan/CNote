@@ -21,4 +21,5 @@ urlpatterns = [
     url(r'signup',signup),
     url(r'signin',signin),
     url(r'writenote',writeNote),
+    url(r'readnote',readNote),
 ]
