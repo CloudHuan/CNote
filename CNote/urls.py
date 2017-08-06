@@ -19,5 +19,5 @@ from account import urls
 
 urlpatterns = [
     #url(r'^admin/', admin.site.urls),
-    url(r'^account/',include(urls)),
+    url(r'^note/',include(urls)),
 ]
