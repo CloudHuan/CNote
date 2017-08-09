@@ -132,6 +132,7 @@ def writeNote(request):
     public = request.POST.get('public','');
     token = request.META.get('HTTP_TOKEN', '');
 
+
     if not content:
         return C_Response(-108,'','content is null');
     try:
@@ -139,9 +140,10 @@ def writeNote(request):
     except:
         return C_Response(-109, '', 'token is invalid');
 
+    if not public:
+        public = False;
 
-
-    Note.objects.create(uuid=r.uid,content=content,public=False);
+    Note.objects.create(uuid=r.uid,content=content,public=public);
     r = Note.objects.get(cid=0);
     c_id = r.id;
     r.cid = c_id;
@@ -174,7 +176,6 @@ header：TOKEN:XXXXXX
 -201    uid not found   
 -203    no content  
 -109    token is invalid
--500    id or token must hava at least one
 '''
 def readNotes(request):
     method = request.method;
@@ -182,7 +183,15 @@ def readNotes(request):
     token = request.META.get('HTTP_TOKEN','');
 
     if not uid and not token:
-        return C_Response(-500,'','uid or token must hava at least one')
+        items = Note.objects.all();
+        resp = []
+        for item in items:
+            if item.public:
+                resp.append({"cid:": item.cid, "content": item.content, "public": item.public});
+        if resp == []:
+            return C_Response(-203, '', 'no content');
+        else:
+            return C_Response(0,resp)
 
     if uid:
 
@@ -221,6 +230,9 @@ def readNotes(request):
         resp.append({"cid:":o.cid,"content":o.content,"public":o.public});
 
     return C_Response(0,resp);
+
+def doPublic(resuest):
+    pass
 
 
 
