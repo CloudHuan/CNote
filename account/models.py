@@ -4,7 +4,7 @@ from django.db import models
 
 class User(models.Model):
     uid = models.IntegerField(default=0);
-    name = models.CharField(max_length=10,unique=True);
+    name = models.CharField(max_length=100,unique=True);
     pwd = models.CharField(max_length=200);
     phone = models.CharField(max_length=100,unique=True);
     token = models.CharField(max_length=100);

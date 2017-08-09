@@ -65,11 +65,12 @@ body:username=cloudhuan,password=1,phone=10010
 }
 *****返回码定义*****
 0   注册成功
--1      请求方式错误
--100    传入参数错误，传入name、phone为空
--101    传入密码pwd为空
--102    传入密码pwd没有32位 md5加密
--103    帐号已经被已经被注册phone唯一
+-1      method error,only support post
+-100    params error,name or phone should not null
+-101    password is null
+-102    password must a 32 MD5 string
+-103    username has been used
+-104    phone has benn used
 '''
 def signup(request):
     method = request.method;
@@ -83,12 +84,14 @@ def signup(request):
         return C_Response(-100,'','params error,name or phone should not null');
     if not pwd:
         return C_Response(-101,'','password is null')
-    if len(pwd) != 1:
-        return C_Response(-102,'','password must a MD5 string');
+    if len(pwd) != 32:
+        return C_Response(-102,'','password must a 32 MD5 string');
     r = User.objects.raw('SELECT * FROM account_user');
     for item in r:
-        if phone == item.phone or name == item.name:
-            return C_Response(-103, '', 'account has benn regist!');
+        if phone == item.phone :
+            return C_Response(-103, '', 'phone has been used');
+        if name == item.name:
+            return C_Response(-104, '', 'username has benn used');
 
     #创建账户
     User.objects.create(name=name,phone=phone,pwd=pwd);
@@ -119,8 +122,8 @@ header：TOKEN:XXX    body:uid=1,content='我是文本哦'
 
 *****返回码*****
 0   ok
--108    uid or content is null
--109    uid not found
+-108    content is null
+-109    token is invalid
 '''
 def writeNote(request):
     pass
@@ -129,20 +132,16 @@ def writeNote(request):
     public = request.POST.get('public','');
     token = request.META.get('HTTP_TOKEN', '');
 
-
-
-    if not uid or not content:
-        return C_Response(-108,'','uid or content is null');
+    if not content:
+        return C_Response(-108,'','content is null');
     try:
-        User.objects.get(uid=uid);
+        r = User.objects.get(token=token);
     except:
-        return C_Response(-109,'','uid not found');
+        return C_Response(-109, '', 'token is invalid');
 
-    r = User.objects.get(uid=uid);
-    if token != r.token:
-        return C_Response(-202, '', 'no permission');
 
-    Note.objects.create(uuid=uid,content=content,public=False);
+
+    Note.objects.create(uuid=r.uid,content=content,public=False);
     r = Note.objects.get(cid=0);
     c_id = r.id;
     r.cid = c_id;
@@ -172,35 +171,54 @@ header：TOKEN:XXXXXX
 }
 *****返回码*****
 0   ok
--200    please input user id    用户id不能为空
--201    uid not found   无此用户
--202    no permission   无权限访问该资源
--203    no content  无数据
+-201    uid not found   
+-203    no content  
+-109    token is invalid
+-500    id or token must hava at least one
 '''
-def readNote(request):
+def readNotes(request):
     method = request.method;
     uid = request.GET.get('uid','');
     token = request.META.get('HTTP_TOKEN','');
 
-    if not uid:
-        return C_Response(-200,'','please input user id');
+    if not uid and not token:
+        return C_Response(-500,'','uid or token must hava at least one')
+
+    if uid:
+
+        try:
+            User.objects.get(uid=uid);
+        except:
+            return C_Response(-201, '', 'uid not found');
+
+        items = Note.objects.filter(uuid=uid);
+        resp = [];
+
+        if not items:
+            return C_Response(-203, '', 'no content');
+
+        for o in items:
+            if not o.public:
+                continue;
+            resp.append({"cid:": o.cid, "content": o.content,"public":o.public});
+        if resp != []:
+            return C_Response(0, resp);
+        else:
+            return C_Response(-203, '', 'no content');
+
     try:
-        User.objects.get(uid=uid);
+        rrr = User.objects.get(token=token);
     except:
-        return C_Response(-201,'','uid not found');
+        return C_Response(-109, '', 'token is invalid');
 
-    r = User.objects.get(uid=uid);
-    if not token == r.token:
-        return C_Response(-202, '', 'no permission');
-
-    items = Note.objects.filter(uuid=uid);
+    items = Note.objects.filter(uuid=rrr.uid);
     resp = [];
 
     if not items:
         return C_Response(-203,'','no content');
 
     for o in items:
-        resp.append({"cid:":o.cid,"content":o.content});
+        resp.append({"cid:":o.cid,"content":o.content,"public":o.public});
 
     return C_Response(0,resp);
 
